@@ -1,0 +1,13 @@
+{
+  "name": "penzugyekrol-autopost",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automata carousel posztolas FB/IG-re Metricoolon keresztul (Penzugyekrol Patrikkal).",
+  "scripts": {
+    "prepare-post": "node scripts/prepare.js",
+    "notify-make": "node scripts/notify-make.js"
+  },
+  "dependencies": {
+    "playwright": "1.49.1"
+  }
+}
