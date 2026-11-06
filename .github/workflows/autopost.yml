@@ -1,0 +1,64 @@
+name: Auto poszt (FB + IG, Make.com)
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mód: dryrun (teszt, NEM megy ki) vagy live (élesben kiposztol)'
+        required: true
+        default: 'dryrun'
+        type: choice
+        options: [dryrun, live]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autopost
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
+      TZ_NAME: 'Europe/Budapest'
+      INTERVAL_DAYS: '2'
+      POST_BRANCH: 'main'
+      RUN_MODE: ${{ github.event.inputs.mode || 'live' }}
+    defaults:
+      run:
+        working-directory: autopost
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Függőségek telepítése
+        run: npm install
+      - name: Chromium telepítése (Playwright)
+        run: npx playwright install --with-deps chromium
+      - name: 1) Terv + képek renderelése
+        run: node scripts/prepare.js
+      - name: 2) Képek a repó gyökerébe + feltöltés (nyilvános linkhez)
+        working-directory: .
+        run: |
+          mkdir -p images
+          cp -rf autopost/images/. images/ 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add images
+          git commit -m "Poszt képek feltöltése" || echo "Nincs új kép."
+          git push || echo "Nincs mit pusholni."
+      - name: 3) Értesítés a Make.com-nak (kiposztol FB + IG)
+        run: node scripts/notify-make.js
+      - name: 4) Állapot mentése
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add autopost/state.json
+          git commit -m "Állapot frissítése" || echo "Nincs állapotváltozás."
+          git push || echo "Nincs mit pusholni."
